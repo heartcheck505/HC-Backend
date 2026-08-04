@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="HeartCheck.IntegrationTest/HeartCheck.IntegrationTest.csproj" />
+  <Project Path="HeartCheck.SecurityTest/HeartCheck.SecurityTest.csproj" />
+  <Project Path="HeartCheck.UnitTest/HeartCheck.UnitTest.csproj" />
+  <Project Path="HeartCheck/HeartCheck.csproj" />
+</Solution>

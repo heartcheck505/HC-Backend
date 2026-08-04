@@ -1,0 +1,157 @@
+using HeartCheck.Data;
+using HeartCheck.DTOs.Measurements;
+using HeartCheck.Models;
+using MongoDB.Bson;
+
+namespace HeartCheck.Services
+{
+    public class MeasurementService : IMeasurementService
+    {
+        private readonly IPatientRepository _patientRepository;
+        private readonly IDeviceRepository _deviceRepository;
+        private readonly IMeasurementRepository _measurementRepository;
+        private readonly IAlertRepository _alertRepository;
+
+        public MeasurementService(
+            IPatientRepository patientRepository,
+            IDeviceRepository deviceRepository,
+            IMeasurementRepository measurementRepository,
+            IAlertRepository alertRepository)
+        {
+            _patientRepository = patientRepository;
+            _deviceRepository = deviceRepository;
+            _measurementRepository = measurementRepository;
+            _alertRepository = alertRepository;
+        }
+
+        public async Task<MeasurementResponse> CreateAsync(ObjectId userId, CreateMeasurementRequest request)
+        {
+            var patient = await _patientRepository.GetByUserIdAsync(userId);
+            if (patient == null)
+            {
+                throw new KeyNotFoundException("Patient profile not found");
+            }
+
+            var deviceId = ObjectId.Parse(request.DeviceId);
+            var device = await _deviceRepository.GetByIdAsync(deviceId);
+            if (device == null || device.PatientId != patient.Id)
+            {
+                throw new InvalidOperationException("Device not found or not associated with this patient");
+            }
+
+            if (device.Status != "active")
+            {
+                throw new InvalidOperationException("Device is not active");
+            }
+
+            var isNormal = CalculateIsNormal(request.Bpm, request.Context);
+
+            var measurement = new HeartRateMeasurement
+            {
+                Timestamp = DateTime.UtcNow,
+                Metadata = new MeasurementMetadata
+                {
+                    PatientId = patient.Id,
+                    DeviceId = device.Id
+                },
+                Bpm = request.Bpm,
+                Quality = request.Quality,
+                Context = request.Context,
+                IsNormal = isNormal,
+                Notes = request.Notes
+            };
+
+            await _measurementRepository.AddAsync(measurement);
+
+            if (!isNormal)
+            {
+                var (alertType, threshold) = CalculateAlertData(request.Bpm, request.Context);
+
+                var severity = CalculateSeverity(request.Bpm, threshold);
+
+                var alert = new Alert
+                {
+                    MeasurementId = measurement.Id,
+                    PatientId = patient.Id,
+                    DeviceId = device.Id,
+                    Type = alertType,
+                    Severity = severity,
+                    BpmValue = request.Bpm,
+                    Threshold = threshold,
+                    Status = "active",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _alertRepository.CreateAsync(alert);
+            }
+
+            return MapToResponse(measurement);
+        }
+
+        public async Task<List<MeasurementResponse>> GetHistoryAsync(
+            ObjectId userId, DateTime? from, DateTime? to)
+        {
+            var patient = await _patientRepository.GetByUserIdAsync(userId);
+            if (patient == null)
+            {
+                throw new KeyNotFoundException("Patient profile not found");
+            }
+
+            var measurements = await _measurementRepository
+                .GetByPatientIdAndRangeAsync(patient.Id, from, to);
+
+            return measurements.Select(MapToResponse).ToList();
+        }
+
+        private static (string alertType, int threshold) CalculateAlertData(int bpm, string context)
+        {
+            return context.ToLowerInvariant() switch
+            {
+                "rest" => bpm > 100 ? ("high_bpm", 100) : ("low_bpm", 60),
+                "active" => bpm > 160 ? ("high_bpm", 160) : ("low_bpm", 80),
+                "sleep" => bpm > 80 ? ("high_bpm", 80) : ("low_bpm", 40),
+                _ => bpm > 100 ? ("high_bpm", 100) : ("low_bpm", 60)
+            };
+        }
+
+        private static string CalculateSeverity(int bpm, int threshold)
+        {
+            var gap = Math.Abs(bpm - threshold);
+            var pct = threshold > 0 ? (double)gap / threshold : 0;
+
+            return pct switch
+            {
+                > 0.40 => "critical",
+                > 0.25 => "high",
+                > 0.10 => "medium",
+                _ => "low"
+            };
+        }
+
+        private static bool CalculateIsNormal(int bpm, string context)
+        {
+            return context.ToLowerInvariant() switch
+            {
+                "rest" => bpm >= 60 && bpm <= 100,
+                "active" => bpm >= 80 && bpm <= 160,
+                "sleep" => bpm >= 40 && bpm <= 80,
+                _ => bpm >= 60 && bpm <= 100
+            };
+        }
+
+        private static MeasurementResponse MapToResponse(HeartRateMeasurement measurement)
+        {
+            return new MeasurementResponse
+            {
+                Timestamp = measurement.Timestamp,
+                PatientId = measurement.Metadata.PatientId.ToString(),
+                DeviceId = measurement.Metadata.DeviceId.ToString(),
+                Bpm = measurement.Bpm,
+                Quality = measurement.Quality,
+                Context = measurement.Context,
+                IsNormal = measurement.IsNormal,
+                Notes = measurement.Notes
+            };
+        }
+    }
+}
