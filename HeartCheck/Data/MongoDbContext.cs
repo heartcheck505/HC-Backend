@@ -44,5 +44,8 @@ namespace HeartCheck.Data
 
         public IMongoCollection<UserPlan> UserPlans =>
             _database.GetCollection<UserPlan>("user_plans");
+
+        public IMongoCollection<Notification> Notifications =>
+            _database.GetCollection<Notification>("notifications");
     }
 }

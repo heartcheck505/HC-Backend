@@ -51,6 +51,9 @@ builder.Services.AddScoped<IUserPlanRepository, UserPlanRepository>();
 
 builder.Services.AddScoped<IPlanService, PlanService>();
 
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();

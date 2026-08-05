@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using HeartCheck.Data;
+using HeartCheck.DTOs.Notifications;
 using HeartCheck.DTOs.Plans;
 using HeartCheck.Models;
 using HeartCheck.Services;
@@ -285,5 +288,157 @@ public class PlanServiceTests
         var result = await _planService.GetUserActivePlanAsync(userId);
 
         result.Should().BeNull();
+    }
+}
+
+public class NotificationServiceTests
+{
+    private readonly Mock<INotificationRepository> _notificationRepositoryMock;
+    private readonly NotificationService _notificationService;
+
+    public NotificationServiceTests()
+    {
+        _notificationRepositoryMock = new Mock<INotificationRepository>();
+        _notificationService = new NotificationService(
+            _notificationRepositoryMock.Object
+        );
+    }
+
+    [Fact]
+    public async Task GetUserNotificationsAsync_ReturnsNotificationsForUser()
+    {
+        var userId = ObjectId.GenerateNewId();
+        var notifications = new List<Notification>
+        {
+            new Notification
+            {
+                Id = ObjectId.GenerateNewId(),
+                UserId = userId,
+                Title = "Alerta de BPM",
+                Message = "Tu BPM está elevado",
+                Type = "alert_created",
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            },
+            new Notification
+            {
+                Id = ObjectId.GenerateNewId(),
+                UserId = userId,
+                Title = "Plan actualizado",
+                Message = "Tu plan ha sido renovado",
+                Type = "plan_updated",
+                IsRead = true,
+                ReadAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow.AddDays(-1)
+            }
+        };
+
+        _notificationRepositoryMock
+            .Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(notifications);
+
+        var result = await _notificationService.GetUserNotificationsAsync(userId);
+
+        result.Should().HaveCount(2);
+        result.Should().AllBeOfType<NotificationResponse>();
+        result.First().Title.Should().Be("Alerta de BPM");
+        result.Last().IsRead.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetUserNotificationsAsync_NoNotifications_ReturnsEmptyList()
+    {
+        var userId = ObjectId.GenerateNewId();
+
+        _notificationRepositoryMock
+            .Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(new List<Notification>());
+
+        var result = await _notificationService.GetUserNotificationsAsync(userId);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task MarkAsReadAsync_ValidNotification_MarksAsRead()
+    {
+        var userId = ObjectId.GenerateNewId();
+        var notificationId = ObjectId.GenerateNewId();
+        var notification = new Notification
+        {
+            Id = notificationId,
+            UserId = userId,
+            Title = "Test",
+            Message = "Test message",
+            Type = "system",
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _notificationRepositoryMock
+            .Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(new List<Notification> { notification });
+
+        Notification updatedNotification = null!;
+        _notificationRepositoryMock
+            .Setup(x => x.UpdateAsync(It.IsAny<Notification>()))
+            .Callback<Notification>(n => updatedNotification = n)
+            .Returns(Task.CompletedTask);
+
+        await _notificationService.MarkAsReadAsync(notificationId, userId);
+
+        updatedNotification.IsRead.Should().BeTrue();
+        updatedNotification.ReadAt.Should().NotBeNull();
+        updatedNotification.ReadAt.Value.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
+
+        _notificationRepositoryMock.Verify(x => x.UpdateAsync(It.Is<Notification>(n => n.Id == notificationId)), Times.Once);
+    }
+
+    [Fact]
+    public async Task MarkAsReadAsync_NotificationNotFound_ThrowsKeyNotFoundException()
+    {
+        var userId = ObjectId.GenerateNewId();
+        var notificationId = ObjectId.GenerateNewId();
+
+        _notificationRepositoryMock
+            .Setup(x => x.GetByUserIdAsync(userId))
+            .ReturnsAsync(new List<Notification>());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(
+            () => _notificationService.MarkAsReadAsync(notificationId, userId)
+        );
+    }
+
+    [Fact]
+    public async Task CreateNotificationAsync_ValidRequest_CreatesNotification()
+    {
+        var userId = ObjectId.GenerateNewId();
+        var request = new CreateNotificationRequest
+        {
+            Title = "Nueva alerta",
+            Message = "Se detectó un BPM anormal",
+            Type = "alert_created"
+        };
+
+        Notification createdNotification = null!;
+        _notificationRepositoryMock
+            .Setup(x => x.CreateAsync(It.IsAny<Notification>()))
+            .Callback<Notification>(n => createdNotification = n)
+            .Returns(Task.CompletedTask);
+
+        var result = await _notificationService.CreateNotificationAsync(userId, request);
+
+        result.Title.Should().Be("Nueva alerta");
+        result.Message.Should().Be("Se detectó un BPM anormal");
+        result.Type.Should().Be("alert_created");
+        result.IsRead.Should().BeFalse();
+        result.UserId.Should().Be(userId.ToString());
+
+        createdNotification.Should().NotBeNull();
+        createdNotification.UserId.Should().Be(userId);
+        createdNotification.Title.Should().Be("Nueva alerta");
+        createdNotification.Type.Should().Be("alert_created");
+
+        _notificationRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Notification>()), Times.Once);
     }
 }
