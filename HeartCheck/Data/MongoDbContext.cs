@@ -47,5 +47,8 @@ namespace HeartCheck.Data
 
         public IMongoCollection<Notification> Notifications =>
             _database.GetCollection<Notification>("notifications");
+
+        public IMongoCollection<DailyStatistic> DailyStatistics =>
+            _database.GetCollection<DailyStatistic>("daily_statistics");
     }
 }

@@ -4,6 +4,7 @@ using System.Linq;
 using HeartCheck.Data;
 using HeartCheck.DTOs.Notifications;
 using HeartCheck.DTOs.Plans;
+using HeartCheck.DTOs.Statistics;
 using HeartCheck.Models;
 using HeartCheck.Services;
 using Moq;
@@ -440,5 +441,282 @@ public class NotificationServiceTests
         createdNotification.Type.Should().Be("alert_created");
 
         _notificationRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Notification>()), Times.Once);
+    }
+}
+
+public class DailyStatisticServiceTests
+{
+    private readonly Mock<IDailyStatisticRepository> _dailyStatisticRepositoryMock;
+    private readonly Mock<IMeasurementRepository> _measurementRepositoryMock;
+    private readonly DailyStatisticService _dailyStatisticService;
+
+    public DailyStatisticServiceTests()
+    {
+        _dailyStatisticRepositoryMock = new Mock<IDailyStatisticRepository>();
+        _measurementRepositoryMock = new Mock<IMeasurementRepository>();
+        _dailyStatisticService = new DailyStatisticService(
+            _dailyStatisticRepositoryMock.Object,
+            _measurementRepositoryMock.Object
+        );
+    }
+
+    [Fact]
+    public async Task RecalculateDailyStatisticAsync_WithMeasurements_CalculatesCorrectStatistics()
+    {
+        var patientId = ObjectId.GenerateNewId();
+        var date = new DateTime(2026, 8, 4, 0, 0, 0, DateTimeKind.Utc);
+
+        var measurements = new List<HeartRateMeasurement>
+        {
+            new HeartRateMeasurement
+            {
+                Id = ObjectId.GenerateNewId(),
+                Timestamp = date.AddHours(8),
+                Bpm = 72,
+                IsNormal = true,
+                Quality = "good",
+                Context = "rest",
+                Metadata = new MeasurementMetadata
+                {
+                    PatientId = patientId,
+                    DeviceId = ObjectId.GenerateNewId()
+                }
+            },
+            new HeartRateMeasurement
+            {
+                Id = ObjectId.GenerateNewId(),
+                Timestamp = date.AddHours(12),
+                Bpm = 85,
+                IsNormal = true,
+                Quality = "good",
+                Context = "active",
+                Metadata = new MeasurementMetadata
+                {
+                    PatientId = patientId,
+                    DeviceId = ObjectId.GenerateNewId()
+                }
+            },
+            new HeartRateMeasurement
+            {
+                Id = ObjectId.GenerateNewId(),
+                Timestamp = date.AddHours(18),
+                Bpm = 68,
+                IsNormal = true,
+                Quality = "good",
+                Context = "rest",
+                Metadata = new MeasurementMetadata
+                {
+                    PatientId = patientId,
+                    DeviceId = ObjectId.GenerateNewId()
+                }
+            },
+            new HeartRateMeasurement
+            {
+                Id = ObjectId.GenerateNewId(),
+                Timestamp = date.AddHours(22),
+                Bpm = 105,
+                IsNormal = false,
+                Quality = "good",
+                Context = "rest",
+                Metadata = new MeasurementMetadata
+                {
+                    PatientId = patientId,
+                    DeviceId = ObjectId.GenerateNewId()
+                }
+            }
+        };
+
+        _measurementRepositoryMock
+            .Setup(x => x.GetByPatientIdAndRangeAsync(
+                patientId,
+                It.IsAny<DateTime>(),
+                It.IsAny<DateTime>()))
+            .ReturnsAsync(measurements);
+
+        DailyStatistic upsertedStatistic = null!;
+        _dailyStatisticRepositoryMock
+            .Setup(x => x.UpsertAsync(It.IsAny<DailyStatistic>()))
+            .Callback<DailyStatistic>(s => upsertedStatistic = s)
+            .Returns(Task.CompletedTask);
+
+        var result = await _dailyStatisticService.RecalculateDailyStatisticAsync(patientId, date);
+
+        result.TotalMeasurements.Should().Be(4);
+        result.NormalMeasurements.Should().Be(3);
+        result.AbnormalMeasurements.Should().Be(1);
+        result.MinBpm.Should().Be(68);
+        result.MaxBpm.Should().Be(105);
+        result.AverageBpm.Should().BeApproximately(82.5, 0.1);
+
+        upsertedStatistic.Should().NotBeNull();
+        upsertedStatistic.PatientId.Should().Be(patientId);
+        upsertedStatistic.TotalMeasurements.Should().Be(4);
+        upsertedStatistic.MinBpm.Should().Be(68);
+        upsertedStatistic.MaxBpm.Should().Be(105);
+    }
+
+    [Fact]
+    public async Task RecalculateDailyStatisticAsync_NoMeasurements_SetsZeroValues()
+    {
+        var patientId = ObjectId.GenerateNewId();
+        var date = new DateTime(2026, 8, 4, 0, 0, 0, DateTimeKind.Utc);
+
+        _measurementRepositoryMock
+            .Setup(x => x.GetByPatientIdAndRangeAsync(
+                patientId,
+                It.IsAny<DateTime>(),
+                It.IsAny<DateTime>()))
+            .ReturnsAsync(new List<HeartRateMeasurement>());
+
+        DailyStatistic upsertedStatistic = null!;
+        _dailyStatisticRepositoryMock
+            .Setup(x => x.UpsertAsync(It.IsAny<DailyStatistic>()))
+            .Callback<DailyStatistic>(s => upsertedStatistic = s)
+            .Returns(Task.CompletedTask);
+
+        var result = await _dailyStatisticService.RecalculateDailyStatisticAsync(patientId, date);
+
+        result.TotalMeasurements.Should().Be(0);
+        result.NormalMeasurements.Should().Be(0);
+        result.AbnormalMeasurements.Should().Be(0);
+        result.MinBpm.Should().Be(0);
+        result.MaxBpm.Should().Be(0);
+        result.AverageBpm.Should().Be(0);
+
+        upsertedStatistic.Should().NotBeNull();
+        upsertedStatistic.TotalMeasurements.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetPatientStatisticsAsync_ReturnsStatisticsInDateRange()
+    {
+        var patientId = ObjectId.GenerateNewId();
+        var fromDate = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var toDate = new DateTime(2026, 8, 4, 0, 0, 0, DateTimeKind.Utc);
+
+        var statistics = new List<DailyStatistic>
+        {
+            new DailyStatistic
+            {
+                Id = ObjectId.GenerateNewId(),
+                PatientId = patientId,
+                Date = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc),
+                AverageBpm = 75.5,
+                MinBpm = 60,
+                MaxBpm = 90,
+                TotalMeasurements = 3,
+                NormalMeasurements = 3,
+                AbnormalMeasurements = 0,
+                UpdatedAt = DateTime.UtcNow
+            },
+            new DailyStatistic
+            {
+                Id = ObjectId.GenerateNewId(),
+                PatientId = patientId,
+                Date = new DateTime(2026, 8, 2, 0, 0, 0, DateTimeKind.Utc),
+                AverageBpm = 78.0,
+                MinBpm = 65,
+                MaxBpm = 95,
+                TotalMeasurements = 5,
+                NormalMeasurements = 4,
+                AbnormalMeasurements = 1,
+                UpdatedAt = DateTime.UtcNow
+            },
+            new DailyStatistic
+            {
+                Id = ObjectId.GenerateNewId(),
+                PatientId = patientId,
+                Date = new DateTime(2026, 8, 3, 0, 0, 0, DateTimeKind.Utc),
+                AverageBpm = 70.0,
+                MinBpm = 55,
+                MaxBpm = 85,
+                TotalMeasurements = 2,
+                NormalMeasurements = 2,
+                AbnormalMeasurements = 0,
+                UpdatedAt = DateTime.UtcNow
+            }
+        };
+
+        _dailyStatisticRepositoryMock
+            .Setup(x => x.GetByPatientIdAndDateRangeAsync(
+                patientId, fromDate, toDate))
+            .ReturnsAsync(statistics);
+
+        var result = await _dailyStatisticService.GetPatientStatisticsAsync(
+            patientId, fromDate, toDate);
+
+        result.Should().HaveCount(3);
+        result.Should().AllBeOfType<DailyStatisticResponse>();
+        result.First().Date.Should().Be(new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc));
+        result.Last().Date.Should().Be(new DateTime(2026, 8, 3, 0, 0, 0, DateTimeKind.Utc));
+        result.Sum(s => s.TotalMeasurements).Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetPatientStatisticsAsync_NoStatistics_ReturnsEmptyList()
+    {
+        var patientId = ObjectId.GenerateNewId();
+        var fromDate = new DateTime(2026, 8, 1, 0, 0, 0, DateTimeKind.Utc);
+        var toDate = new DateTime(2026, 8, 4, 0, 0, 0, DateTimeKind.Utc);
+
+        _dailyStatisticRepositoryMock
+            .Setup(x => x.GetByPatientIdAndDateRangeAsync(
+                patientId, fromDate, toDate))
+            .ReturnsAsync(new List<DailyStatistic>());
+
+        var result = await _dailyStatisticService.GetPatientStatisticsAsync(
+            patientId, fromDate, toDate);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RecalculateDailyStatisticAsync_UpsertsExistingStatistic()
+    {
+        var patientId = ObjectId.GenerateNewId();
+        var date = new DateTime(2026, 8, 4, 0, 0, 0, DateTimeKind.Utc);
+        var existingId = ObjectId.GenerateNewId();
+
+        var measurements = new List<HeartRateMeasurement>
+        {
+            new HeartRateMeasurement
+            {
+                Id = ObjectId.GenerateNewId(),
+                Timestamp = date.AddHours(10),
+                Bpm = 75,
+                IsNormal = true,
+                Quality = "good",
+                Context = "rest",
+                Metadata = new MeasurementMetadata
+                {
+                    PatientId = patientId,
+                    DeviceId = ObjectId.GenerateNewId()
+                }
+            }
+        };
+
+        _measurementRepositoryMock
+            .Setup(x => x.GetByPatientIdAndRangeAsync(
+                patientId,
+                It.IsAny<DateTime>(),
+                It.IsAny<DateTime>()))
+            .ReturnsAsync(measurements);
+
+        DailyStatistic upsertedStatistic = null!;
+        _dailyStatisticRepositoryMock
+            .Setup(x => x.UpsertAsync(It.IsAny<DailyStatistic>()))
+            .Callback<DailyStatistic>(s => upsertedStatistic = s)
+            .Returns(Task.CompletedTask);
+
+        var result = await _dailyStatisticService.RecalculateDailyStatisticAsync(patientId, date);
+
+        result.TotalMeasurements.Should().Be(1);
+        result.AverageBpm.Should().Be(75.0);
+        result.MinBpm.Should().Be(75);
+        result.MaxBpm.Should().Be(75);
+
+        upsertedStatistic.Should().NotBeNull();
+        upsertedStatistic.PatientId.Should().Be(patientId);
+        upsertedStatistic.Date.Should().Be(date);
     }
 }
