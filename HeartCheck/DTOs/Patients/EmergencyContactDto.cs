@@ -2,6 +2,7 @@ namespace HeartCheck.DTOs.Patients
 {
     public class EmergencyContactDto
     {
+        public string Id { get; set; } = null!;
         public string Name { get; set; } = null!;
         public string Relationship { get; set; } = null!;
         public string Phone { get; set; } = null!;

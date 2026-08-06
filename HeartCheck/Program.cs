@@ -57,6 +57,9 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IDailyStatisticRepository, DailyStatisticRepository>();
 builder.Services.AddScoped<IDailyStatisticService, DailyStatisticService>();
 
+builder.Services.AddScoped<IEmergencyCallRepository, EmergencyCallRepository>();
+builder.Services.AddScoped<IEmergencyCallService, EmergencyCallService>();
+
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
