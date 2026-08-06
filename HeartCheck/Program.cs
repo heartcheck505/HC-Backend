@@ -63,6 +63,14 @@ builder.Services.AddScoped<IEmergencyCallService, EmergencyCallService>();
 builder.Services.AddScoped<ISymptomRepository, SymptomRepository>();
 builder.Services.AddScoped<ISymptomService, SymptomService>();
 
+
+builder.Services.AddScoped<ISettingRepository, SettingRepository>();
+builder.Services.AddScoped<ISettingService, SettingService>();
+
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+
+
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
