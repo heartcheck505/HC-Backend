@@ -184,6 +184,116 @@ namespace HeartCheck.UnitTest
         }
 
         [Fact]
+        public async Task CreateAutomaticAsync_TachycardiaRest_CreatesSymptom()
+        {
+            var patientId = ObjectId.GenerateNewId();
+            var measurementId = ObjectId.GenerateNewId();
+
+            var measurement = new HeartRateMeasurement
+            {
+                Id = measurementId,
+                Bpm = 120,
+                Context = "rest",
+                IsNormal = false
+            };
+
+            await _symptomService.CreateAutomaticAsync(patientId, measurement);
+
+            _symptomRepositoryMock.Verify(x => x.CreateAsync(It.Is<Symptom>(s =>
+                s.MeasurementId == measurementId &&
+                s.PatientId == patientId &&
+                s.Type == "tachycardia" &&
+                s.Confidence == 20 &&
+                s.Description!.Contains("above")
+            )), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAutomaticAsync_BradycardiaRest_CreatesSymptom()
+        {
+            var patientId = ObjectId.GenerateNewId();
+            var measurementId = ObjectId.GenerateNewId();
+
+            var measurement = new HeartRateMeasurement
+            {
+                Id = measurementId,
+                Bpm = 50,
+                Context = "rest",
+                IsNormal = false
+            };
+
+            await _symptomService.CreateAutomaticAsync(patientId, measurement);
+
+            _symptomRepositoryMock.Verify(x => x.CreateAsync(It.Is<Symptom>(s =>
+                s.MeasurementId == measurementId &&
+                s.PatientId == patientId &&
+                s.Type == "bradycardia" &&
+                s.Confidence == 16.7 &&
+                s.Description!.Contains("below")
+            )), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAutomaticAsync_NormalBpm_DoesNotCreateSymptom()
+        {
+            var patientId = ObjectId.GenerateNewId();
+
+            var measurement = new HeartRateMeasurement
+            {
+                Id = ObjectId.GenerateNewId(),
+                Bpm = 80,
+                Context = "rest",
+                IsNormal = true
+            };
+
+            await _symptomService.CreateAutomaticAsync(patientId, measurement);
+
+            _symptomRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Symptom>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CreateAutomaticAsync_ActiveHigh_CreatesTachycardia()
+        {
+            var patientId = ObjectId.GenerateNewId();
+
+            var measurement = new HeartRateMeasurement
+            {
+                Id = ObjectId.GenerateNewId(),
+                Bpm = 170,
+                Context = "active",
+                IsNormal = false
+            };
+
+            await _symptomService.CreateAutomaticAsync(patientId, measurement);
+
+            _symptomRepositoryMock.Verify(x => x.CreateAsync(It.Is<Symptom>(s =>
+                s.Type == "tachycardia" &&
+                s.Description!.Contains("160")
+            )), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAutomaticAsync_SleepHigh_CreatesTachycardia()
+        {
+            var patientId = ObjectId.GenerateNewId();
+
+            var measurement = new HeartRateMeasurement
+            {
+                Id = ObjectId.GenerateNewId(),
+                Bpm = 90,
+                Context = "sleep",
+                IsNormal = false
+            };
+
+            await _symptomService.CreateAutomaticAsync(patientId, measurement);
+
+            _symptomRepositoryMock.Verify(x => x.CreateAsync(It.Is<Symptom>(s =>
+                s.Type == "tachycardia" &&
+                s.Description!.Contains("80")
+            )), Times.Once);
+        }
+
+        [Fact]
         public async Task GetUserSymptomsAsync_Success_ReturnsSymptoms()
         {
             var userId = ObjectId.GenerateNewId();

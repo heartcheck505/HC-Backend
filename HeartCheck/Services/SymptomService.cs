@@ -61,6 +61,27 @@ namespace HeartCheck.Services
             return MapToResponse(symptom);
         }
 
+        public async Task CreateAutomaticAsync(ObjectId patientId, HeartRateMeasurement measurement)
+        {
+            var detection = DetectSymptom(measurement.Bpm, measurement.Context);
+            if (detection == null)
+            {
+                return;
+            }
+
+            var symptom = new Symptom
+            {
+                MeasurementId = measurement.Id,
+                PatientId = patientId,
+                Type = detection.Value.Type,
+                Confidence = CalculateConfidence(measurement.Bpm, detection.Value.Threshold),
+                Description = BuildDescription(measurement.Bpm, detection.Value.Type, detection.Value.Threshold, measurement.Context),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _symptomRepository.CreateAsync(symptom);
+        }
+
         public async Task<List<SymptomResponse>> GetUserSymptomsAsync(ObjectId userId)
         {
             var patient = await GetPatientByUserIdAsync(userId);
@@ -94,6 +115,39 @@ namespace HeartCheck.Services
 
             var symptoms = await _symptomRepository.GetByMeasurementIdAsync(measurementId);
             return symptoms.Select(MapToResponse).ToList();
+        }
+
+        private static (string Type, int Threshold)? DetectSymptom(int bpm, string context)
+        {
+            var (low, high) = BpmThresholds.Get(context);
+
+            // Extension point: "arrhythmia" and "irregular_pattern" detection requires
+            // pattern analysis across consecutive measurements (R-R interval variability),
+            // which is not implemented yet. No medical algorithm is invented here.
+            if (bpm < low)
+            {
+                return ("bradycardia", low);
+            }
+
+            if (bpm > high)
+            {
+                return ("tachycardia", high);
+            }
+
+            return null;
+        }
+
+        private static double CalculateConfidence(int bpm, int threshold)
+        {
+            var gap = Math.Abs(bpm - threshold);
+            var ratio = threshold > 0 ? (double)gap / threshold : 0;
+            return Math.Round(Math.Min(100, ratio * 100), 1);
+        }
+
+        private static string BuildDescription(int bpm, string type, int threshold, string context)
+        {
+            var direction = type == "bradycardia" ? "below" : "above";
+            return $"BPM {bpm} is {direction} the {threshold} bpm threshold for context {context}";
         }
 
         private async Task<Patient> GetPatientByUserIdAsync(ObjectId userId)
