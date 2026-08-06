@@ -46,6 +46,7 @@ namespace HeartCheck.Services
                 Status = "active",
                 EmergencyContacts = request.EmergencyContacts.Select(c => new EmergencyContact
                 {
+                    Id = ObjectId.TryParse(c.Id, out var contactId) ? contactId : ObjectId.GenerateNewId(),
                     Name = c.Name,
                     Relationship = c.Relationship,
                     Phone = c.Phone,
@@ -100,6 +101,7 @@ namespace HeartCheck.Services
 
                 patient.EmergencyContacts = request.EmergencyContacts.Select(c => new EmergencyContact
                 {
+                    Id = ObjectId.TryParse(c.Id, out var contactId) ? contactId : ObjectId.GenerateNewId(),
                     Name = c.Name,
                     Relationship = c.Relationship,
                     Phone = c.Phone,
@@ -134,6 +136,7 @@ namespace HeartCheck.Services
                 Status = patient.Status,
                 EmergencyContacts = patient.EmergencyContacts.Select(c => new EmergencyContactDto
                 {
+                    Id = c.Id.ToString(),
                     Name = c.Name,
                     Relationship = c.Relationship,
                     Phone = c.Phone,

@@ -51,6 +51,9 @@ namespace HeartCheck.Data
         public IMongoCollection<DailyStatistic> DailyStatistics =>
             _database.GetCollection<DailyStatistic>("daily_statistics");
 
+        public IMongoCollection<EmergencyCall> EmergencyCalls =>
+            _database.GetCollection<EmergencyCall>("emergency_calls");
+
         public IMongoCollection<Symptom> Symptoms =>
             _database.GetCollection<Symptom>("symptoms");
 

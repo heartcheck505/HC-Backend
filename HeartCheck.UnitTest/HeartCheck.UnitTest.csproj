@@ -26,6 +26,7 @@
     <Using Include="HeartCheck.DTOs.Measurements" />
     <Using Include="HeartCheck.DTOs.Alerts" />
     <Using Include="HeartCheck.DTOs.Events" />
+    <Using Include="HeartCheck.DTOs.EmergencyCalls" />
     <Using Include="HeartCheck.DTOs.Symptoms" />
         
     <Using Include="HeartCheck.DTOs.Settings" />
@@ -48,6 +49,7 @@
     <Using Include="HeartCheck.DTOs.Measurements" />
     <Using Include="HeartCheck.DTOs.Alerts" />
     <Using Include="HeartCheck.DTOs.Events" />
+    <Using Include="HeartCheck.DTOs.EmergencyCalls" />
     <Using Include="HeartCheck.DTOs.Symptoms" />
  
     <Using Include="HeartCheck.DTOs.Settings" />
