@@ -11,17 +11,20 @@ namespace HeartCheck.Services
         private readonly IDeviceRepository _deviceRepository;
         private readonly IMeasurementRepository _measurementRepository;
         private readonly IAlertRepository _alertRepository;
+        private readonly ISymptomService _symptomService;
 
         public MeasurementService(
             IPatientRepository patientRepository,
             IDeviceRepository deviceRepository,
             IMeasurementRepository measurementRepository,
-            IAlertRepository alertRepository)
+            IAlertRepository alertRepository,
+            ISymptomService symptomService)
         {
             _patientRepository = patientRepository;
             _deviceRepository = deviceRepository;
             _measurementRepository = measurementRepository;
             _alertRepository = alertRepository;
+            _symptomService = symptomService;
         }
 
         public async Task<MeasurementResponse> CreateAsync(ObjectId userId, CreateMeasurementRequest request)
@@ -83,6 +86,8 @@ namespace HeartCheck.Services
                 };
 
                 await _alertRepository.CreateAsync(alert);
+
+                await _symptomService.CreateAutomaticAsync(patient.Id, measurement);
             }
 
             return MapToResponse(measurement);
@@ -105,13 +110,8 @@ namespace HeartCheck.Services
 
         private static (string alertType, int threshold) CalculateAlertData(int bpm, string context)
         {
-            return context.ToLowerInvariant() switch
-            {
-                "rest" => bpm > 100 ? ("high_bpm", 100) : ("low_bpm", 60),
-                "active" => bpm > 160 ? ("high_bpm", 160) : ("low_bpm", 80),
-                "sleep" => bpm > 80 ? ("high_bpm", 80) : ("low_bpm", 40),
-                _ => bpm > 100 ? ("high_bpm", 100) : ("low_bpm", 60)
-            };
+            var (low, high) = BpmThresholds.Get(context);
+            return bpm > high ? ("high_bpm", high) : ("low_bpm", low);
         }
 
         private static string CalculateSeverity(int bpm, int threshold)
@@ -130,13 +130,8 @@ namespace HeartCheck.Services
 
         private static bool CalculateIsNormal(int bpm, string context)
         {
-            return context.ToLowerInvariant() switch
-            {
-                "rest" => bpm >= 60 && bpm <= 100,
-                "active" => bpm >= 80 && bpm <= 160,
-                "sleep" => bpm >= 40 && bpm <= 80,
-                _ => bpm >= 60 && bpm <= 100
-            };
+            var (low, high) = BpmThresholds.Get(context);
+            return bpm >= low && bpm <= high;
         }
 
         private static MeasurementResponse MapToResponse(HeartRateMeasurement measurement)

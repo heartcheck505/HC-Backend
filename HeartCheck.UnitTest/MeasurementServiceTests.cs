@@ -14,6 +14,7 @@ namespace HeartCheck.UnitTest
         private readonly Mock<IDeviceRepository> _deviceRepositoryMock;
         private readonly Mock<IMeasurementRepository> _measurementRepositoryMock;
         private readonly Mock<IAlertRepository> _alertRepositoryMock;
+        private readonly Mock<ISymptomService> _symptomServiceMock;
         private readonly MeasurementService _measurementService;
 
         public MeasurementServiceTests()
@@ -22,12 +23,14 @@ namespace HeartCheck.UnitTest
             _deviceRepositoryMock = new Mock<IDeviceRepository>();
             _measurementRepositoryMock = new Mock<IMeasurementRepository>();
             _alertRepositoryMock = new Mock<IAlertRepository>();
+            _symptomServiceMock = new Mock<ISymptomService>();
 
             _measurementService = new MeasurementService(
                 _patientRepositoryMock.Object,
                 _deviceRepositoryMock.Object,
                 _measurementRepositoryMock.Object,
-                _alertRepositoryMock.Object
+                _alertRepositoryMock.Object,
+                _symptomServiceMock.Object
             );
         }
 
@@ -83,6 +86,10 @@ namespace HeartCheck.UnitTest
             result.IsNormal.Should().BeTrue();
 
             _alertRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Alert>()), Times.Never);
+
+            _symptomServiceMock.Verify(
+                x => x.CreateAutomaticAsync(It.IsAny<ObjectId>(), It.IsAny<HeartRateMeasurement>()),
+                Times.Never);
         }
 
         [Fact]
@@ -143,6 +150,10 @@ namespace HeartCheck.UnitTest
                 a.Threshold == 100 &&
                 a.Severity == "medium"
             )), Times.Once);
+
+            _symptomServiceMock.Verify(
+                x => x.CreateAutomaticAsync(patientId, It.IsAny<HeartRateMeasurement>()),
+                Times.Once);
         }
 
         [Fact]

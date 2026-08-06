@@ -13,6 +13,13 @@ namespace HeartCheck.Data
             _context = context;
         }
 
+        public async Task<HeartRateMeasurement?> GetByIdAsync(ObjectId id)
+        {
+            return await _context.HeartRateMeasurements
+                .Find(m => m.Id == id)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task AddAsync(HeartRateMeasurement measurement)
         {
             await _context.HeartRateMeasurements.InsertOneAsync(measurement);

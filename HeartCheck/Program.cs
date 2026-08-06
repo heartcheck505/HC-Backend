@@ -60,6 +60,9 @@ builder.Services.AddScoped<IDailyStatisticService, DailyStatisticService>();
 builder.Services.AddScoped<IEmergencyCallRepository, EmergencyCallRepository>();
 builder.Services.AddScoped<IEmergencyCallService, EmergencyCallService>();
 
+builder.Services.AddScoped<ISymptomRepository, SymptomRepository>();
+builder.Services.AddScoped<ISymptomService, SymptomService>();
+
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
