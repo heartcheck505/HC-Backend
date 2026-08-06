@@ -133,12 +133,14 @@ namespace HeartCheck.UnitTest
 
             var measurementRepoMock = new Mock<IMeasurementRepository>();
             var alertRepoMock = new Mock<IAlertRepository>();
+            var symptomServiceMock = new Mock<ISymptomService>();
 
             var measurementService = new MeasurementService(
                 _patientRepositoryMock.Object,
                 _deviceRepositoryMock.Object,
                 measurementRepoMock.Object,
-                alertRepoMock.Object
+                alertRepoMock.Object,
+                symptomServiceMock.Object
             );
 
             var deviceRequest = new HeartCheck.DTOs.Measurements.CreateMeasurementRequest
