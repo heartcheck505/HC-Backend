@@ -53,5 +53,8 @@ namespace HeartCheck.Data
 
         public IMongoCollection<Symptom> Symptoms =>
             _database.GetCollection<Symptom>("symptoms");
+
+        public IMongoCollection<Setting> Settings =>
+            _database.GetCollection<Setting>("settings");
     }
 }
