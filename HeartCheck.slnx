@@ -3,4 +3,5 @@
   <Project Path="HeartCheck.SecurityTest/HeartCheck.SecurityTest.csproj" />
   <Project Path="HeartCheck.UnitTest/HeartCheck.UnitTest.csproj" />
   <Project Path="HeartCheck/HeartCheck.csproj" />
+  <Project Path="HeartCheckTrainer/HeartCheckTrainer.csproj" />
 </Solution>
