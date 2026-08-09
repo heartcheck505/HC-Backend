@@ -40,6 +40,8 @@ builder.Services.AddScoped<IMeasurementRepository, MeasurementRepository>();
 
 builder.Services.AddScoped<IMeasurementService, MeasurementService>();
 
+builder.Services.AddSingleton<IPredictionService, PredictionService>();
+
 builder.Services.AddScoped<IAlertRepository, AlertRepository>();
 builder.Services.AddScoped<IEventRepository, EventRepository>();
 

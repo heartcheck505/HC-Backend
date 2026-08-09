@@ -3,6 +3,7 @@ using Moq;
 using Xunit;
 using HeartCheck.Data;
 using HeartCheck.DTOs.Devices;
+using HeartCheck.DTOs.Measurements;
 using HeartCheck.Models;
 using HeartCheck.Services;
 
@@ -134,13 +135,24 @@ namespace HeartCheck.UnitTest
             var measurementRepoMock = new Mock<IMeasurementRepository>();
             var alertRepoMock = new Mock<IAlertRepository>();
             var symptomServiceMock = new Mock<ISymptomService>();
+            var predictionServiceMock = new Mock<IPredictionService>();
+
+            predictionServiceMock
+                .Setup(x => x.PredictRisk(It.IsAny<float>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
+                .Returns(new RiskAssessmentDto
+                {
+                    RiskLevel = "low",
+                    Score = 0.2f,
+                    Recommendation = "Recomendación"
+                });
 
             var measurementService = new MeasurementService(
                 _patientRepositoryMock.Object,
                 _deviceRepositoryMock.Object,
                 measurementRepoMock.Object,
                 alertRepoMock.Object,
-                symptomServiceMock.Object
+                symptomServiceMock.Object,
+                predictionServiceMock.Object
             );
 
             var deviceRequest = new HeartCheck.DTOs.Measurements.CreateMeasurementRequest

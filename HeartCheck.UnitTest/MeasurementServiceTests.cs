@@ -15,6 +15,7 @@ namespace HeartCheck.UnitTest
         private readonly Mock<IMeasurementRepository> _measurementRepositoryMock;
         private readonly Mock<IAlertRepository> _alertRepositoryMock;
         private readonly Mock<ISymptomService> _symptomServiceMock;
+        private readonly Mock<IPredictionService> _predictionServiceMock;
         private readonly MeasurementService _measurementService;
 
         public MeasurementServiceTests()
@@ -24,13 +25,24 @@ namespace HeartCheck.UnitTest
             _measurementRepositoryMock = new Mock<IMeasurementRepository>();
             _alertRepositoryMock = new Mock<IAlertRepository>();
             _symptomServiceMock = new Mock<ISymptomService>();
+            _predictionServiceMock = new Mock<IPredictionService>();
+
+            _predictionServiceMock
+                .Setup(x => x.PredictRisk(It.IsAny<float>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>()))
+                .Returns(new RiskAssessmentDto
+                {
+                    RiskLevel = "low",
+                    Score = 0.2f,
+                    Recommendation = "Tu frecuencia cardíaca se encuentra dentro de los valores esperados."
+                });
 
             _measurementService = new MeasurementService(
                 _patientRepositoryMock.Object,
                 _deviceRepositoryMock.Object,
                 _measurementRepositoryMock.Object,
                 _alertRepositoryMock.Object,
-                _symptomServiceMock.Object
+                _symptomServiceMock.Object,
+                _predictionServiceMock.Object
             );
         }
 
@@ -267,6 +279,166 @@ namespace HeartCheck.UnitTest
 
                 _alertRepositoryMock.Reset();
             }
+        }
+
+        [Fact]
+        public async Task CreateAsync_IncludesRiskAssessmentFromPredictionService()
+        {
+            var userId = ObjectId.GenerateNewId();
+            var patientId = ObjectId.GenerateNewId();
+            var patient = new Patient
+            {
+                Id = patientId,
+                UserId = userId,
+                DateOfBirth = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            _patientRepositoryMock
+                .Setup(x => x.GetByUserIdAsync(userId))
+                .ReturnsAsync(patient);
+
+            var deviceId = ObjectId.GenerateNewId();
+            var device = new Device
+            {
+                Id = deviceId,
+                PatientId = patientId,
+                DeviceIdentifier = "AA:BB:CC:DD:EE:FF",
+                Status = "active"
+            };
+
+            _deviceRepositoryMock
+                .Setup(x => x.GetByIdAsync(deviceId))
+                .ReturnsAsync(device);
+
+            var request = new CreateMeasurementRequest
+            {
+                DeviceId = deviceId.ToString(),
+                Bpm = 120,
+                Quality = "good",
+                Context = "rest"
+            };
+
+            _measurementRepositoryMock
+                .Setup(x => x.AddAsync(It.IsAny<HeartRateMeasurement>()))
+                .Callback<HeartRateMeasurement>(m => m.Id = ObjectId.GenerateNewId())
+                .Returns(Task.CompletedTask);
+
+            _alertRepositoryMock
+                .Setup(x => x.CreateAsync(It.IsAny<Alert>()))
+                .Returns(Task.CompletedTask);
+
+            var result = await _measurementService.CreateAsync(userId, request);
+
+            result.RiskAssessment.Should().NotBeNull();
+            result.RiskAssessment!.RiskLevel.Should().Be("low");
+            result.RiskAssessment.Score.Should().Be(0.2f);
+            result.RiskAssessment.Recommendation.Should().NotBeNullOrEmpty();
+
+            _predictionServiceMock.Verify(
+                x => x.PredictRisk(It.Is<float>(b => b == 120), "rest", It.IsAny<int>(), false),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAsync_WithSymptoms_PassesHasSymptomsTrue()
+        {
+            var userId = ObjectId.GenerateNewId();
+            var patientId = ObjectId.GenerateNewId();
+            var patient = new Patient
+            {
+                Id = patientId,
+                UserId = userId,
+                DateOfBirth = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            };
+
+            _patientRepositoryMock
+                .Setup(x => x.GetByUserIdAsync(userId))
+                .ReturnsAsync(patient);
+
+            var deviceId = ObjectId.GenerateNewId();
+            var device = new Device
+            {
+                Id = deviceId,
+                PatientId = patientId,
+                DeviceIdentifier = "AA:BB:CC:DD:EE:FF",
+                Status = "active"
+            };
+
+            _deviceRepositoryMock
+                .Setup(x => x.GetByIdAsync(deviceId))
+                .ReturnsAsync(device);
+
+            var request = new CreateMeasurementRequest
+            {
+                DeviceId = deviceId.ToString(),
+                Bpm = 120,
+                Quality = "good",
+                Context = "rest",
+                Symptoms = new List<string> { "palpitations", "dizziness" }
+            };
+
+            _measurementRepositoryMock
+                .Setup(x => x.AddAsync(It.IsAny<HeartRateMeasurement>()))
+                .Callback<HeartRateMeasurement>(m => m.Id = ObjectId.GenerateNewId())
+                .Returns(Task.CompletedTask);
+
+            _alertRepositoryMock
+                .Setup(x => x.CreateAsync(It.IsAny<Alert>()))
+                .Returns(Task.CompletedTask);
+
+            await _measurementService.CreateAsync(userId, request);
+
+            _predictionServiceMock.Verify(
+                x => x.PredictRisk(It.IsAny<float>(), It.IsAny<string>(), It.IsAny<int>(), true),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateAsync_DefaultDateOfBirth_UsesAge30ForPrediction()
+        {
+            var userId = ObjectId.GenerateNewId();
+            var patientId = ObjectId.GenerateNewId();
+            var patient = new Patient
+            {
+                Id = patientId,
+                UserId = userId
+            };
+
+            _patientRepositoryMock
+                .Setup(x => x.GetByUserIdAsync(userId))
+                .ReturnsAsync(patient);
+
+            var deviceId = ObjectId.GenerateNewId();
+            var device = new Device
+            {
+                Id = deviceId,
+                PatientId = patientId,
+                DeviceIdentifier = "AA:BB:CC:DD:EE:FF",
+                Status = "active"
+            };
+
+            _deviceRepositoryMock
+                .Setup(x => x.GetByIdAsync(deviceId))
+                .ReturnsAsync(device);
+
+            var request = new CreateMeasurementRequest
+            {
+                DeviceId = deviceId.ToString(),
+                Bpm = 80,
+                Quality = "good",
+                Context = "rest"
+            };
+
+            _measurementRepositoryMock
+                .Setup(x => x.AddAsync(It.IsAny<HeartRateMeasurement>()))
+                .Callback<HeartRateMeasurement>(m => m.Id = ObjectId.GenerateNewId())
+                .Returns(Task.CompletedTask);
+
+            var result = await _measurementService.CreateAsync(userId, request);
+
+            _predictionServiceMock.Verify(
+                x => x.PredictRisk(It.IsAny<float>(), It.IsAny<string>(), 30, It.IsAny<bool>()),
+                Times.Once);
         }
     }
 }

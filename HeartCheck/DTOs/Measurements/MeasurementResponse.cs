@@ -10,5 +10,6 @@ namespace HeartCheck.DTOs.Measurements
         public string Context { get; set; } = null!;
         public bool IsNormal { get; set; }
         public string? Notes { get; set; }
+        public RiskAssessmentDto? RiskAssessment { get; set; }
     }
 }
