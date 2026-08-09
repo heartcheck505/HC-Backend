@@ -12,19 +12,22 @@ namespace HeartCheck.Services
         private readonly IMeasurementRepository _measurementRepository;
         private readonly IAlertRepository _alertRepository;
         private readonly ISymptomService _symptomService;
+        private readonly IPredictionService _predictionService;
 
         public MeasurementService(
             IPatientRepository patientRepository,
             IDeviceRepository deviceRepository,
             IMeasurementRepository measurementRepository,
             IAlertRepository alertRepository,
-            ISymptomService symptomService)
+            ISymptomService symptomService,
+            IPredictionService predictionService)
         {
             _patientRepository = patientRepository;
             _deviceRepository = deviceRepository;
             _measurementRepository = measurementRepository;
             _alertRepository = alertRepository;
             _symptomService = symptomService;
+            _predictionService = predictionService;
         }
 
         public async Task<MeasurementResponse> CreateAsync(ObjectId userId, CreateMeasurementRequest request)
@@ -90,7 +93,9 @@ namespace HeartCheck.Services
                 await _symptomService.CreateAutomaticAsync(patient.Id, measurement);
             }
 
-            return MapToResponse(measurement);
+            var riskAssessment = EvaluateRisk(request, patient);
+
+            return MapToResponse(measurement, riskAssessment);
         }
 
         public async Task<List<MeasurementResponse>> GetHistoryAsync(
@@ -105,7 +110,7 @@ namespace HeartCheck.Services
             var measurements = await _measurementRepository
                 .GetByPatientIdAndRangeAsync(patient.Id, from, to);
 
-            return measurements.Select(MapToResponse).ToList();
+            return measurements.Select(m => MapToResponse(m)).ToList();
         }
 
         private static (string alertType, int threshold) CalculateAlertData(int bpm, string context)
@@ -134,7 +139,50 @@ namespace HeartCheck.Services
             return bpm >= low && bpm <= high;
         }
 
-        private static MeasurementResponse MapToResponse(HeartRateMeasurement measurement)
+        private RiskAssessmentDto? EvaluateRisk(CreateMeasurementRequest request, Patient patient)
+        {
+            var age = CalculateAge(patient.DateOfBirth);
+            if (age == 0)
+            {
+                age = 30;
+            }
+
+            var hasSymptoms = request.Symptoms != null && request.Symptoms.Any();
+
+            try
+            {
+                return _predictionService.PredictRisk(
+                    request.Bpm,
+                    request.Context,
+                    age,
+                    hasSymptoms);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static int CalculateAge(DateTime dateOfBirth)
+        {
+            if (dateOfBirth == default)
+            {
+                return 0;
+            }
+
+            var today = DateTime.UtcNow;
+            var age = today.Year - dateOfBirth.Year;
+            if (dateOfBirth.Date > today.AddYears(-age))
+            {
+                age--;
+            }
+
+            return age < 0 ? 0 : age;
+        }
+
+        private static MeasurementResponse MapToResponse(
+            HeartRateMeasurement measurement,
+            RiskAssessmentDto? riskAssessment = null)
         {
             return new MeasurementResponse
             {
@@ -145,7 +193,8 @@ namespace HeartCheck.Services
                 Quality = measurement.Quality,
                 Context = measurement.Context,
                 IsNormal = measurement.IsNormal,
-                Notes = measurement.Notes
+                Notes = measurement.Notes,
+                RiskAssessment = riskAssessment
             };
         }
     }

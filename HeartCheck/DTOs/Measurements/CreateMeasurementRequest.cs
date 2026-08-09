@@ -7,5 +7,6 @@ namespace HeartCheck.DTOs.Measurements
         public string Quality { get; set; } = null!;
         public string Context { get; set; } = null!;
         public string? Notes { get; set; }
+        public List<string>? Symptoms { get; set; }
     }
 }
