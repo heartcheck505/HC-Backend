@@ -1,8 +1,11 @@
 using System.Text;
+using FluentValidation;
 using FluentValidation.AspNetCore;
 using HeartCheck.Configurations;
 using HeartCheck.Data;
+using HeartCheck.Middleware;
 using HeartCheck.Services;
+using HeartCheck.Validators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson.Serialization;
@@ -81,6 +84,25 @@ var jwtSettings = builder.Configuration
     .GetSection("Jwt")
     .Get<JwtSettings>();
 
+if (jwtSettings is null || string.IsNullOrWhiteSpace(jwtSettings.SecretKey))
+{
+    throw new InvalidOperationException(
+        "La configuración Jwt es inválida: la clave 'Jwt:SecretKey' no está configurada.");
+}
+
+const string defaultPlaceholder = "YourSuperSecretKeyThatIsAtLeast32CharactersLong!!";
+var isPlaceholder = string.Equals(
+    jwtSettings.SecretKey, defaultPlaceholder, StringComparison.Ordinal);
+
+if (!builder.Environment.IsDevelopment() &&
+    (isPlaceholder || jwtSettings.SecretKey.Length < 32))
+{
+    throw new InvalidOperationException(
+        "La configuración Jwt es insegura: 'Jwt:SecretKey' debe ser una clave de al menos 32 " +
+        "caracteres y no puede ser el valor de ejemplo por defecto fuera del entorno Development. " +
+        "Configúrala mediante User Secrets o variables de entorno (por ejemplo, Jwt__SecretKey).");
+}
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -94,7 +116,7 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings!.Issuer,
+        ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
@@ -104,9 +126,12 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateMeasurementRequestValidator>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -119,3 +144,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

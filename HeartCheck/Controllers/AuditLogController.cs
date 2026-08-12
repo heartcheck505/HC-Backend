@@ -7,7 +7,7 @@ namespace HeartCheck.Controllers
 {
     [ApiController]
     [Route("api/audit-logs")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public class AuditLogController : ControllerBase
     {
         private readonly IAuditLogService _auditLogService;

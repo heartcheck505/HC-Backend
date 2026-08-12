@@ -9,19 +9,29 @@ namespace HeartCheck.Services
         private readonly ITransformer? _model;
 
         public PredictionService(IWebHostEnvironment environment)
+            : this(ResolveModelPath(environment))
+        {
+        }
+
+        internal PredictionService(string? modelPath)
         {
             _mlContext = new MLContext();
 
+            if (!string.IsNullOrEmpty(modelPath) && File.Exists(modelPath))
+            {
+                _model = _mlContext.Model.Load(modelPath, out _);
+            }
+        }
+
+        private static string? ResolveModelPath(IWebHostEnvironment environment)
+        {
             var modelPath = Path.Combine(environment.ContentRootPath, "HeartCheckML.zip");
             if (!File.Exists(modelPath))
             {
                 modelPath = Path.Combine(AppContext.BaseDirectory, "HeartCheckML.zip");
             }
 
-            if (File.Exists(modelPath))
-            {
-                _model = _mlContext.Model.Load(modelPath, out _);
-            }
+            return modelPath;
         }
 
         public RiskAssessmentDto PredictRisk(float bpm, string context, int age, bool hasSymptoms)
@@ -58,7 +68,7 @@ namespace HeartCheck.Services
             };
         }
 
-        private static string NormalizeContext(string context)
+        internal static string NormalizeContext(string context)
         {
             return context.ToLowerInvariant() switch
             {
@@ -68,7 +78,7 @@ namespace HeartCheck.Services
             };
         }
 
-        private static string NormalizeLabel(string? label)
+        internal static string NormalizeLabel(string? label)
         {
             return label?.ToLowerInvariant() switch
             {

@@ -9,7 +9,7 @@ namespace HeartCheck.Controllers
 {
     [ApiController]
     [Route("api/settings")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public class SettingController : ControllerBase
     {
         private readonly ISettingService _settingService;

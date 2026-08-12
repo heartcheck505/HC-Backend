@@ -6,6 +6,13 @@
 # dotenv files
 .env
 
+# Sensitive environment-specific configuration (never commit)
+appsettings.Production.json
+appsettings.production.json
+appsettings.Staging.json
+appsettings.*.local.json
+*.prod.json
+
 # User-specific files
 *.rsuser
 *.suo

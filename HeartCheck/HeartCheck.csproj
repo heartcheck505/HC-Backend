@@ -11,7 +11,7 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
 	<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.9.0" />
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
     <PackageReference Include="MongoDB.Driver" Version="3.10.0" />
@@ -19,6 +19,12 @@
 
   <ItemGroup>
     <None Include="HeartCheckML.zip" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HeartCheck.UnitTest" />
+    <InternalsVisibleTo Include="HeartCheck.SecurityTest" />
+    <InternalsVisibleTo Include="HeartCheck.IntegrationTest" />
   </ItemGroup>
 
 </Project>
