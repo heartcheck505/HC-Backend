@@ -1,4 +1,6 @@
 using HeartCheck.DTOs.Measurements;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.ML;
 
 namespace HeartCheck.Services
@@ -7,23 +9,42 @@ namespace HeartCheck.Services
     {
         private readonly MLContext _mlContext;
         private readonly ITransformer? _model;
+        private readonly ILogger<PredictionService> _logger;
 
-        public PredictionService(IWebHostEnvironment environment)
-            : this(ResolveModelPath(environment))
+        public PredictionService(IHostEnvironment environment, ILogger<PredictionService> logger)
+            : this(ResolveModelPath(environment), logger)
         {
         }
 
-        internal PredictionService(string? modelPath)
+        internal PredictionService(string? modelPath, ILogger<PredictionService>? logger = null)
         {
             _mlContext = new MLContext();
+            _logger = logger ?? NullLogger<PredictionService>.Instance;
 
-            if (!string.IsNullOrEmpty(modelPath) && File.Exists(modelPath))
+            if (string.IsNullOrEmpty(modelPath) || !File.Exists(modelPath))
+            {
+                _logger.LogWarning(
+                    "Modelo ML 'HeartCheckML.zip' no encontrado en la ruta '{ModelPath}'. " +
+                    "Se activa el modo fallback por umbrales.",
+                    modelPath);
+                return;
+            }
+
+            try
             {
                 _model = _mlContext.Model.Load(modelPath, out _);
+                _logger.LogInformation("Modelo ML cargado correctamente desde '{ModelPath}'.", modelPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "No se pudo cargar el modelo ML desde '{ModelPath}'. Se activa el modo fallback por umbrales.",
+                    modelPath);
             }
         }
 
-        private static string? ResolveModelPath(IWebHostEnvironment environment)
+        private static string? ResolveModelPath(IHostEnvironment environment)
         {
             var modelPath = Path.Combine(environment.ContentRootPath, "HeartCheckML.zip");
             if (!File.Exists(modelPath))
