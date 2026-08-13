@@ -219,6 +219,7 @@ namespace HeartCheck.Services
                 UserId = userIdObj,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
+                SecondLastName = request.SecondLastName,
                 DateOfBirth = dateOfBirth,
                 Gender = string.IsNullOrWhiteSpace(request.Gender) ? "not_specified" : request.Gender,
                 Weight = request.Weight ?? 0,
@@ -230,6 +231,8 @@ namespace HeartCheck.Services
                 Status = "active",
                 EmergencyContacts = emergencyContacts,
                 Medications = request.Medications ?? new List<string>(),
+                InitialDiagnosis = request.InitialDiagnosis,
+                AssignedDoctor = request.AssignedDoctor,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };

@@ -34,6 +34,7 @@ namespace HeartCheck.Services
                 UserId = userId,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
+                SecondLastName = request.SecondLastName,
                 DateOfBirth = request.DateOfBirth,
                 Gender = request.Gender,
                 Weight = request.Weight,
@@ -54,6 +55,8 @@ namespace HeartCheck.Services
                     IsPrimary = c.IsPrimary
                 }).ToList(),
                 Medications = request.Medications ?? new List<string>(),
+                InitialDiagnosis = request.InitialDiagnosis,
+                AssignedDoctor = request.AssignedDoctor,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -83,6 +86,7 @@ namespace HeartCheck.Services
 
             if (request.FirstName != null) patient.FirstName = request.FirstName;
             if (request.LastName != null) patient.LastName = request.LastName;
+            if (request.SecondLastName != null) patient.SecondLastName = request.SecondLastName;
             if (request.DateOfBirth.HasValue) patient.DateOfBirth = request.DateOfBirth.Value;
             if (request.Gender != null) patient.Gender = request.Gender;
             if (request.Weight.HasValue) patient.Weight = request.Weight.Value;
@@ -116,6 +120,9 @@ namespace HeartCheck.Services
                 patient.Medications = request.Medications;
             }
 
+            if (request.InitialDiagnosis != null) patient.InitialDiagnosis = request.InitialDiagnosis;
+            if (request.AssignedDoctor != null) patient.AssignedDoctor = request.AssignedDoctor;
+
             patient.UpdatedAt = DateTime.UtcNow;
 
             await _patientRepository.UpdateAsync(patient);
@@ -130,7 +137,9 @@ namespace HeartCheck.Services
                 UserId = patient.UserId.ToString(),
                 FirstName = patient.FirstName,
                 LastName = patient.LastName,
+                SecondLastName = patient.SecondLastName,
                 DateOfBirth = patient.DateOfBirth,
+                Age = CalculateAge(patient.DateOfBirth),
                 Gender = patient.Gender,
                 Weight = patient.Weight,
                 Height = patient.Height,
@@ -150,9 +159,28 @@ namespace HeartCheck.Services
                     IsPrimary = c.IsPrimary
                 }).ToList(),
                 Medications = patient.Medications?.ToList() ?? new List<string>(),
+                InitialDiagnosis = patient.InitialDiagnosis,
+                AssignedDoctor = patient.AssignedDoctor,
                 CreatedAt = patient.CreatedAt,
                 UpdatedAt = patient.UpdatedAt
             };
+        }
+
+        private static int CalculateAge(DateTime dateOfBirth)
+        {
+            if (dateOfBirth == default)
+            {
+                return 0;
+            }
+
+            var today = DateTime.UtcNow;
+            var age = today.Year - dateOfBirth.Year;
+            if (dateOfBirth.Date > today.AddYears(-age))
+            {
+                age--;
+            }
+
+            return age < 0 ? 0 : age;
         }
     }
 }

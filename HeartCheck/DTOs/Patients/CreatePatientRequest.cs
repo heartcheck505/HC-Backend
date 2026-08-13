@@ -4,6 +4,7 @@ namespace HeartCheck.DTOs.Patients
     {
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;
+        public string? SecondLastName { get; set; }
         public DateTime DateOfBirth { get; set; }
         public string Gender { get; set; } = null!;
         public double Weight { get; set; }
@@ -15,5 +16,7 @@ namespace HeartCheck.DTOs.Patients
         public string? Observations { get; set; }
         public List<EmergencyContactDto> EmergencyContacts { get; set; } = new();
         public List<string> Medications { get; set; } = new();
+        public string? InitialDiagnosis { get; set; }
+        public string? AssignedDoctor { get; set; }
     }
 }

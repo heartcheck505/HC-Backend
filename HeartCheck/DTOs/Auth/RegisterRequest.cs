@@ -8,6 +8,7 @@ namespace HeartCheck.DTOs.Auth
         public string Password { get; set; } = null!;
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;
+        public string? SecondLastName { get; set; }
         public string? Phone { get; set; }
 
         public DateTime? DateOfBirth { get; set; }
@@ -26,5 +27,7 @@ namespace HeartCheck.DTOs.Auth
         public string? EmergencyEmail { get; set; }
         public bool SetAsPrimaryEmergency { get; set; }
         public List<string>? Medications { get; set; }
+        public string? InitialDiagnosis { get; set; }
+        public string? AssignedDoctor { get; set; }
     }
 }

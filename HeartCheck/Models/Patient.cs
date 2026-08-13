@@ -19,6 +19,9 @@ namespace HeartCheck.Models
         [BsonElement("lastName")]
         public string LastName { get; set; } = null!;
 
+        [BsonElement("secondLastName")]
+        public string? SecondLastName { get; set; }
+
         [BsonElement("dateOfBirth")]
         public DateTime DateOfBirth { get; set; }
 
@@ -54,6 +57,12 @@ namespace HeartCheck.Models
 
         [BsonElement("medications")]
         public List<string> Medications { get; set; } = new();
+
+        [BsonElement("initialDiagnosis")]
+        public string? InitialDiagnosis { get; set; }
+
+        [BsonElement("assignedDoctor")]
+        public string? AssignedDoctor { get; set; }
 
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; }
