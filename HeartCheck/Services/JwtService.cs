@@ -9,6 +9,9 @@ namespace HeartCheck.Services
 {
     public class JwtService : IJwtService
     {
+        public const string PlatformClaim = "platform";
+        public const string SessionIdClaim = "session_id";
+
         private readonly JwtSettings _jwtSettings;
 
         public JwtService(IOptions<JwtSettings> jwtSettings)
@@ -17,6 +20,11 @@ namespace HeartCheck.Services
         }
 
         public string GenerateToken(string userId, string email, string role)
+        {
+            return GenerateToken(userId, email, role, "Web", Guid.NewGuid().ToString("N"));
+        }
+
+        public string GenerateToken(string userId, string email, string role, string platform, string sessionId)
         {
             var key = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
@@ -27,7 +35,9 @@ namespace HeartCheck.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.Email, email),
-                new Claim(ClaimTypes.Role, role)
+                new Claim(ClaimTypes.Role, role),
+                new Claim(PlatformClaim, platform),
+                new Claim(SessionIdClaim, sessionId)
             };
 
             var token = new JwtSecurityToken(

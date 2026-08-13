@@ -9,6 +9,7 @@ using HeartCheck.Services;
 using HeartCheck.Validators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
@@ -113,6 +114,9 @@ try
             "User Secrets o la variable de entorno 'Jwt__SecretKey' en producción.");
     }
 
+    builder.Services.AddSingleton<IOptions<JwtSettings>>(
+        Options.Create(jwtSettings));
+
     builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -120,6 +124,7 @@ try
     })
     .AddJwtBearer(options =>
     {
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -131,6 +136,10 @@ try
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
         };
+
+        // DevSecOps: se eliminan los Console.WriteLine de depuración de
+        // OnTokenValidated/OnAuthenticationFailed para evitar fugas de
+        // información sensible en los logs del servidor.
     });
 
     builder.Services.AddControllers();
@@ -150,6 +159,7 @@ try
 
     app.UseHttpsRedirection();
     app.UseAuthentication();
+    app.UseMiddleware<SinglePlatformSessionMiddleware>();
     app.UseAuthorization();
     app.MapControllers();
 

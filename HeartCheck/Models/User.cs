@@ -30,6 +30,9 @@ namespace HeartCheck.Models
         [BsonElement("lastLogin")]
         public DateTime? LastLogin { get; set; }
 
+        [BsonElement("activeSessions")]
+        public Dictionary<string, string> ActiveSessions { get; set; } = new();
+
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; }
 

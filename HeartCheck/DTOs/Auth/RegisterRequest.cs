@@ -11,6 +11,7 @@ namespace HeartCheck.DTOs.Auth
         public string? Phone { get; set; }
 
         public DateTime? DateOfBirth { get; set; }
+        public int? Age { get; set; }
         public string? Gender { get; set; }
         public double? Weight { get; set; }
         public double? Height { get; set; }
@@ -19,6 +20,11 @@ namespace HeartCheck.DTOs.Auth
         public string? PhotoUrl { get; set; }
         public string? Observations { get; set; }
         public List<EmergencyContactDto>? EmergencyContacts { get; set; }
+        public string? EmergencyContactName { get; set; }
+        public string? EmergencyRelationship { get; set; }
+        public string? EmergencyPhone { get; set; }
+        public string? EmergencyEmail { get; set; }
+        public bool SetAsPrimaryEmergency { get; set; }
         public List<string>? Medications { get; set; }
     }
 }

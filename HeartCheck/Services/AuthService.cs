@@ -88,8 +88,12 @@ namespace HeartCheck.Services
 
             await SavePatientProfileAsync(user.Id, request);
 
+            var sessionId = Guid.NewGuid().ToString("N");
+            user.ActiveSessions["Web"] = sessionId;
+            await _userRepository.UpdateAsync(user);
+
             var token = _jwtService.GenerateToken(
-                user.Id, user.Email, role.Name);
+                user.Id, user.Email, role.Name, "Web", sessionId);
 
             return new AuthResponse
             {
@@ -108,7 +112,11 @@ namespace HeartCheck.Services
                 throw new UnauthorizedAccessException("Invalid credentials");
             }
 
+            var platform = NormalizePlatform(request.Platform);
+            var sessionId = Guid.NewGuid().ToString("N");
+
             user.LastLogin = DateTime.UtcNow;
+            user.ActiveSessions[platform] = sessionId;
             await _userRepository.UpdateAsync(user);
 
             var userRole = await _userRoleRepository.GetByUserIdAsync(
@@ -123,7 +131,7 @@ namespace HeartCheck.Services
             }
 
             var token = _jwtService.GenerateToken(
-                user.Id, user.Email, roleName);
+                user.Id, user.Email, roleName, platform, sessionId);
 
             return new AuthResponse
             {
@@ -134,15 +142,31 @@ namespace HeartCheck.Services
             };
         }
 
+        private static string NormalizePlatform(string? platform)
+        {
+            var normalized = string.IsNullOrWhiteSpace(platform)
+                ? "Web"
+                : platform.Trim();
+
+            return normalized.ToUpperInvariant() switch
+            {
+                "MOBILE" => "Mobile",
+                "WATCH" => "Watch",
+                _ => "Web"
+            };
+        }
+
         private async Task SavePatientProfileAsync(string userId, RegisterRequest request)
         {
             var hasProfileData =
                 request.DateOfBirth.HasValue ||
+                request.Age.HasValue ||
                 !string.IsNullOrWhiteSpace(request.Gender) ||
                 !string.IsNullOrWhiteSpace(request.BloodType) ||
                 request.Weight.HasValue ||
                 request.Height.HasValue ||
                 !string.IsNullOrWhiteSpace(request.Address) ||
+                !string.IsNullOrWhiteSpace(request.EmergencyContactName) ||
                 request.EmergencyContacts?.Count > 0 ||
                 request.Medications?.Count > 0;
 
@@ -159,13 +183,44 @@ namespace HeartCheck.Services
                 return;
             }
 
+            var dateOfBirth = request.DateOfBirth ?? default;
+            if (dateOfBirth == default && request.Age.HasValue)
+            {
+                var age = Math.Max(request.Age.Value, 0);
+                dateOfBirth = DateTime.UtcNow.AddYears(-age);
+            }
+
+            var emergencyContacts = (request.EmergencyContacts ?? new List<EmergencyContactDto>())
+                .Select(c => new EmergencyContact
+                {
+                    Id = ObjectId.TryParse(c.Id, out var contactId) ? contactId : ObjectId.GenerateNewId(),
+                    Name = c.Name,
+                    Relationship = c.Relationship,
+                    Phone = c.Phone,
+                    Email = c.Email,
+                    IsPrimary = c.IsPrimary
+                }).ToList();
+
+            if (!string.IsNullOrWhiteSpace(request.EmergencyContactName))
+            {
+                emergencyContacts.Add(new EmergencyContact
+                {
+                    Id = ObjectId.GenerateNewId(),
+                    Name = request.EmergencyContactName,
+                    Relationship = request.EmergencyRelationship ?? string.Empty,
+                    Phone = request.EmergencyPhone ?? string.Empty,
+                    Email = request.EmergencyEmail,
+                    IsPrimary = request.SetAsPrimaryEmergency
+                });
+            }
+
             var patient = new Patient
             {
                 UserId = userIdObj,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                DateOfBirth = request.DateOfBirth ?? default,
-                Gender = request.Gender ?? string.Empty,
+                DateOfBirth = dateOfBirth,
+                Gender = string.IsNullOrWhiteSpace(request.Gender) ? "not_specified" : request.Gender,
                 Weight = request.Weight ?? 0,
                 Height = request.Height ?? 0,
                 BloodType = request.BloodType ?? string.Empty,
@@ -173,16 +228,7 @@ namespace HeartCheck.Services
                 Address = request.Address ?? string.Empty,
                 Observations = request.Observations,
                 Status = "active",
-                EmergencyContacts = (request.EmergencyContacts ?? new List<EmergencyContactDto>())
-                    .Select(c => new EmergencyContact
-                    {
-                        Id = ObjectId.TryParse(c.Id, out var contactId) ? contactId : ObjectId.GenerateNewId(),
-                        Name = c.Name,
-                        Relationship = c.Relationship,
-                        Phone = c.Phone,
-                        Email = c.Email,
-                        IsPrimary = c.IsPrimary
-                    }).ToList(),
+                EmergencyContacts = emergencyContacts,
                 Medications = request.Medications ?? new List<string>(),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
