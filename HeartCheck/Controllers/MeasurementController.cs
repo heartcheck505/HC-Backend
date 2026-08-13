@@ -40,12 +40,16 @@ namespace HeartCheck.Controllers
 
         [HttpGet]
         public async Task<IActionResult> GetHistory(
-            [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+            [FromQuery] DateTime? from,
+            [FromQuery] DateTime? to,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
             try
             {
                 var userId = GetUserId();
-                var measurements = await _measurementService.GetHistoryAsync(userId, from, to);
+                var measurements = await _measurementService.GetHistoryAsync(
+                    userId, from, to, page, pageSize);
                 return Ok(measurements);
             }
             catch (KeyNotFoundException ex)

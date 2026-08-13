@@ -99,7 +99,8 @@ namespace HeartCheck.Services
         }
 
         public async Task<List<MeasurementResponse>> GetHistoryAsync(
-            ObjectId userId, DateTime? from, DateTime? to)
+            ObjectId userId, DateTime? from, DateTime? to,
+            int page = 1, int pageSize = 10)
         {
             var patient = await _patientRepository.GetByUserIdAsync(userId);
             if (patient == null)
@@ -108,7 +109,7 @@ namespace HeartCheck.Services
             }
 
             var measurements = await _measurementRepository
-                .GetByPatientIdAndRangeAsync(patient.Id, from, to);
+                .GetByPatientIdAndRangeAsync(patient.Id, from, to, page, pageSize);
 
             return measurements.Select(m => MapToResponse(m)).ToList();
         }

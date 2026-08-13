@@ -51,7 +51,8 @@ namespace HeartCheck.Services
             return MapToResponse(device);
         }
 
-        public async Task<List<DeviceResponse>> GetByUserIdAsync(ObjectId userId)
+        public async Task<List<DeviceResponse>> GetByUserIdAsync(ObjectId userId,
+            int page = 1, int pageSize = 10)
         {
             var patient = await _patientRepository.GetByUserIdAsync(userId);
             if (patient == null)
@@ -59,7 +60,7 @@ namespace HeartCheck.Services
                 throw new KeyNotFoundException("Patient profile not found");
             }
 
-            var devices = await _deviceRepository.GetByPatientIdAsync(patient.Id);
+            var devices = await _deviceRepository.GetByPatientIdAsync(patient.Id, page, pageSize);
             return devices.Select(MapToResponse).ToList();
         }
 

@@ -39,12 +39,14 @@ namespace HeartCheck.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
             try
             {
                 var userId = GetUserId();
-                var devices = await _deviceService.GetByUserIdAsync(userId);
+                var devices = await _deviceService.GetByUserIdAsync(userId, page, pageSize);
                 return Ok(devices);
             }
             catch (KeyNotFoundException ex)

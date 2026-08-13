@@ -7,6 +7,7 @@ namespace HeartCheck.Services
     {
         Task<MeasurementResponse> CreateAsync(ObjectId userId, CreateMeasurementRequest request);
         Task<List<MeasurementResponse>> GetHistoryAsync(
-            ObjectId userId, DateTime? from, DateTime? to);
+            ObjectId userId, DateTime? from, DateTime? to,
+            int page = 1, int pageSize = 10);
     }
 }

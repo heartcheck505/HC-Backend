@@ -14,5 +14,6 @@ namespace HeartCheck.DTOs.Patients
         public string? PhotoUrl { get; set; }
         public string? Observations { get; set; }
         public List<EmergencyContactDto>? EmergencyContacts { get; set; }
+        public List<string>? Medications { get; set; }
     }
 }

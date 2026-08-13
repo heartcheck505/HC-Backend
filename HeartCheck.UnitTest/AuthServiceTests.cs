@@ -13,6 +13,7 @@ namespace HeartCheck.UnitTest
         private readonly Mock<IUserRepository> _userRepositoryMock;
         private readonly Mock<IRoleRepository> _roleRepositoryMock;
         private readonly Mock<IUserRoleRepository> _userRoleRepositoryMock;
+        private readonly Mock<IPatientRepository> _patientRepositoryMock;
         private readonly Mock<IPasswordHasher> _passwordHasherMock;
         private readonly Mock<IJwtService> _jwtServiceMock;
         private readonly AuthService _authService;
@@ -22,6 +23,7 @@ namespace HeartCheck.UnitTest
             _userRepositoryMock = new Mock<IUserRepository>();
             _roleRepositoryMock = new Mock<IRoleRepository>();
             _userRoleRepositoryMock = new Mock<IUserRoleRepository>();
+            _patientRepositoryMock = new Mock<IPatientRepository>();
             _passwordHasherMock = new Mock<IPasswordHasher>();
             _jwtServiceMock = new Mock<IJwtService>();
 
@@ -29,6 +31,7 @@ namespace HeartCheck.UnitTest
                 _userRepositoryMock.Object,
                 _roleRepositoryMock.Object,
                 _userRoleRepositoryMock.Object,
+                _patientRepositoryMock.Object,
                 _passwordHasherMock.Object,
                 _jwtServiceMock.Object
             );
@@ -94,6 +97,92 @@ namespace HeartCheck.UnitTest
             _userRepositoryMock.Verify(x => x.CreateAsync(It.Is<User>(u => u.Email == registerRequest.Email)), Times.Once);
             _roleRepositoryMock.Verify(x => x.CreateAsync(It.Is<Role>(r => r.Name == "Patient" && r.Permissions.Count == 10)), Times.Once);
             _userRoleRepositoryMock.Verify(x => x.CreateAsync(It.Is<UserRole>(ur => ur.UserId.ToString() == createdUserId)), Times.Once);
+            _patientRepositoryMock.Verify(x => x.CreateAsync(It.IsAny<Patient>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task RegisterAsync_WithCompletePatientProfile_SavesPatientLinkedToNewUserId()
+        {
+            var registerRequest = new RegisterRequest
+            {
+                Email = "profile@example.com",
+                Password = "Password123",
+                FirstName = "Jane",
+                LastName = "Roe",
+                Phone = "1234567890",
+                DateOfBirth = new DateTime(1992, 5, 10),
+                Gender = "female",
+                Weight = 60,
+                Height = 165,
+                BloodType = "O+",
+                Address = "123 Main St",
+                EmergencyContacts = new List<EmergencyContactDto>
+                {
+                    new EmergencyContactDto
+                    {
+                        Name = "Contact",
+                        Relationship = "family",
+                        Phone = "0987654321",
+                        IsPrimary = true
+                    }
+                },
+                Medications = new List<string> { "atorvastatin" }
+            };
+
+            _userRepositoryMock
+                .Setup(x => x.GetByEmailAsync(registerRequest.Email))
+                .ReturnsAsync((User?)null);
+
+            _passwordHasherMock
+                .Setup(x => x.Hash(registerRequest.Password))
+                .Returns("hashed_password");
+
+            var createdUserId = "507f1f77bcf86cd799439033";
+            _userRepositoryMock
+                .Setup(x => x.CreateAsync(It.IsAny<User>()))
+                .Callback<User>(u => u.Id = createdUserId)
+                .Returns(Task.CompletedTask);
+
+            _roleRepositoryMock
+                .Setup(x => x.GetByNameAsync("Patient"))
+                .ReturnsAsync(new Role
+                {
+                    Id = ObjectId.Parse("507f1f77bcf86cd799439022"),
+                    Name = "Patient"
+                });
+
+            _userRoleRepositoryMock
+                .Setup(x => x.CreateAsync(It.IsAny<UserRole>()))
+                .Returns(Task.CompletedTask);
+
+            _patientRepositoryMock
+                .Setup(x => x.GetByUserIdAsync(ObjectId.Parse(createdUserId)))
+                .ReturnsAsync((Patient?)null);
+
+            _patientRepositoryMock
+                .Setup(x => x.CreateAsync(It.IsAny<Patient>()))
+                .Returns(Task.CompletedTask);
+
+            _jwtServiceMock
+                .Setup(x => x.GenerateToken(createdUserId, registerRequest.Email, "Patient"))
+                .Returns("generated_jwt_token");
+
+            var result = await _authService.RegisterAsync(registerRequest);
+
+            result.Token.Should().Be("generated_jwt_token");
+
+            _patientRepositoryMock.Verify(x => x.CreateAsync(It.Is<Patient>(p =>
+                p.UserId.ToString() == createdUserId &&
+                p.FirstName == "Jane" &&
+                p.LastName == "Roe" &&
+                p.DateOfBirth == registerRequest.DateOfBirth &&
+                p.Gender == "female" &&
+                p.Weight == 60 &&
+                p.Height == 165 &&
+                p.BloodType == "O+" &&
+                p.EmergencyContacts.Count == 1 &&
+                p.Medications.Contains("atorvastatin")
+            )), Times.Once);
         }
 
         [Fact]

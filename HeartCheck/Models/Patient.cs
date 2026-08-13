@@ -52,6 +52,9 @@ namespace HeartCheck.Models
         [BsonElement("emergencyContacts")]
         public List<EmergencyContact> EmergencyContacts { get; set; } = new();
 
+        [BsonElement("medications")]
+        public List<string> Medications { get; set; } = new();
+
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; }
 

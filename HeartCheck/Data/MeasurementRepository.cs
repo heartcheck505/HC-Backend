@@ -26,7 +26,8 @@ namespace HeartCheck.Data
         }
 
         public async Task<List<HeartRateMeasurement>> GetByPatientIdAndRangeAsync(
-            ObjectId patientId, DateTime? from, DateTime? to)
+            ObjectId patientId, DateTime? from, DateTime? to,
+            int page = 1, int pageSize = 10)
         {
             var filter = Builders<HeartRateMeasurement>.Filter
                 .Eq("metadata.patientId", patientId);
@@ -46,9 +47,14 @@ namespace HeartCheck.Data
                 filter &= timestampFilter;
             }
 
+            var effectivePage = Math.Max(page, 1);
+            var effectivePageSize = Math.Clamp(pageSize, 1, 100);
+
             return await _context.HeartRateMeasurements
                 .Find(filter)
                 .SortByDescending(m => m.Timestamp)
+                .Skip((effectivePage - 1) * effectivePageSize)
+                .Limit(effectivePageSize)
                 .ToListAsync();
         }
     }

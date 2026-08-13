@@ -1,5 +1,7 @@
+using System.Linq;
 using HeartCheck.Data;
 using HeartCheck.DTOs.Auth;
+using HeartCheck.DTOs.Patients;
 using HeartCheck.Models;
 using MongoDB.Bson;
 
@@ -10,6 +12,7 @@ namespace HeartCheck.Services
         private readonly IUserRepository _userRepository;
         private readonly IRoleRepository _roleRepository;
         private readonly IUserRoleRepository _userRoleRepository;
+        private readonly IPatientRepository _patientRepository;
         private readonly IPasswordHasher _passwordHasher;
         private readonly IJwtService _jwtService;
 
@@ -17,12 +20,14 @@ namespace HeartCheck.Services
             IUserRepository userRepository,
             IRoleRepository roleRepository,
             IUserRoleRepository userRoleRepository,
+            IPatientRepository patientRepository,
             IPasswordHasher passwordHasher,
             IJwtService jwtService)
         {
             _userRepository = userRepository;
             _roleRepository = roleRepository;
             _userRoleRepository = userRoleRepository;
+            _patientRepository = patientRepository;
             _passwordHasher = passwordHasher;
             _jwtService = jwtService;
         }
@@ -81,6 +86,8 @@ namespace HeartCheck.Services
             };
             await _userRoleRepository.CreateAsync(userRole);
 
+            await SavePatientProfileAsync(user.Id, request);
+
             var token = _jwtService.GenerateToken(
                 user.Id, user.Email, role.Name);
 
@@ -125,6 +132,63 @@ namespace HeartCheck.Services
                 FirstName = user.FirstName,
                 LastName = user.LastName
             };
+        }
+
+        private async Task SavePatientProfileAsync(string userId, RegisterRequest request)
+        {
+            var hasProfileData =
+                request.DateOfBirth.HasValue ||
+                !string.IsNullOrWhiteSpace(request.Gender) ||
+                !string.IsNullOrWhiteSpace(request.BloodType) ||
+                request.Weight.HasValue ||
+                request.Height.HasValue ||
+                !string.IsNullOrWhiteSpace(request.Address) ||
+                request.EmergencyContacts?.Count > 0 ||
+                request.Medications?.Count > 0;
+
+            if (!hasProfileData)
+            {
+                return;
+            }
+
+            var userIdObj = ObjectId.Parse(userId);
+
+            var existing = await _patientRepository.GetByUserIdAsync(userIdObj);
+            if (existing != null)
+            {
+                return;
+            }
+
+            var patient = new Patient
+            {
+                UserId = userIdObj,
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                DateOfBirth = request.DateOfBirth ?? default,
+                Gender = request.Gender ?? string.Empty,
+                Weight = request.Weight ?? 0,
+                Height = request.Height ?? 0,
+                BloodType = request.BloodType ?? string.Empty,
+                Phone = request.Phone ?? string.Empty,
+                Address = request.Address ?? string.Empty,
+                Observations = request.Observations,
+                Status = "active",
+                EmergencyContacts = (request.EmergencyContacts ?? new List<EmergencyContactDto>())
+                    .Select(c => new EmergencyContact
+                    {
+                        Id = ObjectId.TryParse(c.Id, out var contactId) ? contactId : ObjectId.GenerateNewId(),
+                        Name = c.Name,
+                        Relationship = c.Relationship,
+                        Phone = c.Phone,
+                        Email = c.Email,
+                        IsPrimary = c.IsPrimary
+                    }).ToList(),
+                Medications = request.Medications ?? new List<string>(),
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _patientRepository.CreateAsync(patient);
         }
     }
 }

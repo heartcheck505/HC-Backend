@@ -17,6 +17,7 @@ namespace HeartCheck.DTOs.Patients
         public string? Observations { get; set; }
         public string Status { get; set; } = null!;
         public List<EmergencyContactDto> EmergencyContacts { get; set; } = new();
+        public List<string> Medications { get; set; } = new();
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }

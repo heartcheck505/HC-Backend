@@ -53,6 +53,7 @@ namespace HeartCheck.Services
                     Email = c.Email,
                     IsPrimary = c.IsPrimary
                 }).ToList(),
+                Medications = request.Medications ?? new List<string>(),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -110,6 +111,11 @@ namespace HeartCheck.Services
                 }).ToList();
             }
 
+            if (request.Medications != null)
+            {
+                patient.Medications = request.Medications;
+            }
+
             patient.UpdatedAt = DateTime.UtcNow;
 
             await _patientRepository.UpdateAsync(patient);
@@ -143,6 +149,7 @@ namespace HeartCheck.Services
                     Email = c.Email,
                     IsPrimary = c.IsPrimary
                 }).ToList(),
+                Medications = patient.Medications?.ToList() ?? new List<string>(),
                 CreatedAt = patient.CreatedAt,
                 UpdatedAt = patient.UpdatedAt
             };

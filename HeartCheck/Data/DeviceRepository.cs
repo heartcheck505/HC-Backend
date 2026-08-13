@@ -27,10 +27,17 @@ namespace HeartCheck.Data
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<List<Device>> GetByPatientIdAsync(ObjectId patientId)
+        public async Task<List<Device>> GetByPatientIdAsync(ObjectId patientId,
+            int page = 1, int pageSize = 10)
         {
+            var effectivePage = Math.Max(page, 1);
+            var effectivePageSize = Math.Clamp(pageSize, 1, 100);
+
             return await _context.Devices
                 .Find(d => d.PatientId == patientId)
+                .SortBy(d => d.PairedAt)
+                .Skip((effectivePage - 1) * effectivePageSize)
+                .Limit(effectivePageSize)
                 .ToListAsync();
         }
 
