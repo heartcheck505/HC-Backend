@@ -465,12 +465,18 @@ dotnet test HeartCheck.slnx --configuration Release
 
 ## DevSecOps / CI/CD
 
-El pipeline `.github/workflows/devsecops.yml` se ejecuta en `push` y `pull_request` hacia `main` / `develop`:
+El pipeline `.github/workflows/devsecops.yml` se ejecuta en `push` y `pull_request` hacia `main` / `develop`. Todas las acciones de GitHub están **fijadas por SHA** y los jobs usan el principio de **mínimo privilegio** (`permissions: contents: read`):
 
 1. **Build and Test** — restore → build (Release) → `dotnet test` → sube resultados TRX.
-2. **Vulnerable Package Scan** — `dotnet list package --vulnerable --include-transitive`.
+2. **Vulnerable Package Scan (gate)** — `dotnet list package --vulnerable --include-transitive` y **falla el pipeline** si hay dependencias con severidad `Critical`/`High`.
+3. **Secret Scanning (TruffleHog)** — escanea el código y el historial en busca de credenciales/secrets.
+4. **CodeQL Static Analysis** — análisis SAST de C# con resultados en código scanning.
+5. **Container Image Scan (Trivy)** — construye la imagen Docker y escanea `CRITICAL`/`HIGH`, bloqueando si falla.
 
-> Requisito de Git/GitHub: el token o credencial usada para subir debe incluir el scope `workflow`, ya que el repositorio contiene acciones de GitHub.
+Requisitos de Git/GitHub:
+- El repo debe tener habilitado **GitHub Advanced Security** (o ser público) para que CodeQL y la subida de SARIF funcionen.
+- El token o credencial usada para subir debe incluir el scope `workflow`, ya que el repositorio contiene acciones de GitHub.
+- **Nunca** incrustar tokens PAT en la URL del remote; usar `GITHUB_TOKEN`, credencial manager o `gh auth login`.
 
 ---
 
