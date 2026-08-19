@@ -188,7 +188,9 @@ La configuración vive en `HeartCheck/appsettings.json`:
   $env:Jwt__SecretKey = "UnaClavePrivadaDeAlMenos32CaracteresSegura!!"
   $env:Jwt__Issuer     = "HeartCheck"
   $env:Jwt__Audience   = "HeartCheck"
-  $env:MongoDb__ConnectionString = "mongodb+srv://<usuario>:<clave>@cluster.mongodb.net/"
+  # MongoDB Atlas: configure la cadena completa (esquema mongodb+srv con usuario y clave antes del host)
+  # directamente en la variable de entorno, sin versionarla en archivos del repositorio.
+  $env:MongoDb__ConnectionString = "mongodb+srv://TU_CLUSTER.mongodb.net"
   $env:MongoDb__DatabaseName     = "HeartCheck"
   ```
 
