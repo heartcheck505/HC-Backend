@@ -188,7 +188,7 @@ La configuración vive en `HeartCheck/appsettings.json`:
   $env:Jwt__SecretKey = "UnaClavePrivadaDeAlMenos32CaracteresSegura!!"
   $env:Jwt__Issuer     = "HeartCheck"
   $env:Jwt__Audience   = "HeartCheck"
-  $env:MongoDb__ConnectionString = "mongodb+srv://usuario:clave@cluster.mongodb.net/"
+  $env:MongoDb__ConnectionString = "mongodb+srv://<usuario>:<clave>@cluster.mongodb.net/"
   $env:MongoDb__DatabaseName     = "HeartCheck"
   ```
 
